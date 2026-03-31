@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eksplorasi Bangun Ruang Sisi Datar</title>
+    
+    <!-- Tailwind CSS untuk Styling UI Modern & Responsif -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome untuk Ikon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- SweetAlert2 untuk Notifikasi/Feedback Interaktif -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        /* Custom CSS tambahan */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+        }
+        
+        /* Smooth scrolling */
+        html { scroll-behavior: smooth; }
+
+        /* Canvas Container untuk Three.js */
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            min-height: 300px;
+            cursor: grab;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: radial-gradient(circle, #e2e8f0 0%, #cbd5e1 100%);
+        }
+        #canvas-container:active { cursor: grabbing; }
+
+        /* Hide scrollbar for clean look but keep functionality */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Animations */
+        .fade-in { animation: fadeIn 0.4s ease-in-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Splash Screen Animations */
+        .splash-fade-out { animation: splashFadeOut 0.8s ease-in-out forwards; pointer-events: none; }
+        @keyframes splashFadeOut {
+            from { opacity: 1; visibility: visible; }
+            to { opacity: 0; visibility: hidden; }
+        }
+
+        @keyframes loadingBar {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        .animate-loading { animation: loadingBar 2s ease-in-out forwards; }
+
+        @keyframes float3d {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-15px) rotate(10deg); }
+        }
+        .animate-float3d { animation: float3d 3s ease-in-out infinite; }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col relative">
+
+    <!-- 0. SPLASH SCREEN -->
+    <section id="splash-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gradient-to-br from-indigo-800 via-indigo-600 to-purple-700 text-white">
+        <div class="flex flex-col items-center justify-center flex-grow">
+            <!-- Ikon 3D Animasi -->
+            <div class="animate-float3d mb-6 bg-white/10 p-6 rounded-3xl backdrop-blur-sm border border-white/20 shadow-2xl">
+                <i class="fas fa-cubes text-7xl text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]"></i>
+            </div>
+            
+            <!-- Judul Aplikasi -->
+            <h1 class="text-5xl font-extrabold tracking-tight mb-2 drop-shadow-md text-center">
+                Geometri <span class="text-amber-400">3D</span>
+            </h1>
+            <p class="text-indigo-200 text-lg font-medium tracking-wide mb-12 text-center">
+                Eksplorasi Bangun Ruang Interaktif
+            </p>
+            
+            <!-- Loading Bar -->
+            <div class="w-64 flex flex-col items-center">
+                <div class="w-full h-2 bg-indigo-900/50 rounded-full overflow-hidden mb-3 backdrop-blur-sm border border-indigo-500/30">
+                    <div class="h-full bg-gradient-to-r from-amber-300 to-amber-500 rounded-full animate-loading"></div>
+                </div>
+                <p class="text-xs text-indigo-200 uppercase tracking-widest animate-pulse">Memuat Materi...</p>
+            </div>
+        </div>
+
+        <!-- Footer Splash -->
+        <div class="pb-8 text-center opacity-70">
+            <p class="text-xs uppercase tracking-widest font-semibold mb-1">Dipersembahkan oleh</p>
+            <p class="text-sm font-bold"><span class="text-amber-400">Studio</span>lpg</p>
+        </div>
+    </section>
+
+    <!-- 1. LOGIN VIEW (Dibuat fixed agar selalu center menutupi layar) -->
+    <section id="view-login" class="fixed inset-0 z-50 hidden items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md transform transition-all opacity-0 scale-95" id="login-box">
+            <div class="text-center mb-8">
+                <div class="bg-indigo-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-cube text-4xl text-indigo-600"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold text-slate-800">Geometri 3D</h1>
+                <p class="text-slate-500 mt-2">Bangun Ruang Sisi Datar Kelas 8</p>
+            </div>
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-user text-slate-400"></i>
+                        </div>
+                        <input type="text" id="input-nama" required class="pl-10 w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Masukkan nama kamu">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Asal Sekolah</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-school text-slate-400"></i>
+                        </div>
+                        <input type="text" id="input-sekolah" required class="pl-10 w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Contoh: SMPN 1 Maju Jaya">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1">
+                    Mulai Belajar <i class="fas fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- TOP NAVIGATION (Hidden on Login) -->
+    <nav id="top-nav" class="hidden bg-indigo-600 text-white shadow-lg z-40 relative flex-shrink-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-cubes text-2xl text-amber-400"></i>
+                    <span class="font-bold text-xl tracking-tight hidden sm:block">Geometri <span class="text-amber-400">3D</span></span>
+                </div>
+                <div class="flex items-center space-x-1 sm:space-x-4">
+                    <button onclick="navTo('dashboard')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500 transition"><i class="fas fa-home sm:mr-2"></i><span class="hidden sm:inline">Beranda</span></button>
+                    <button onclick="navTo('materi')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500 transition"><i class="fas fa-book-open sm:mr-2"></i><span class="hidden sm:inline">Materi</span></button>
+                    <button onclick="navTo('kuis')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500 transition"><i class="fas fa-gamepad sm:mr-2"></i><span class="hidden sm:inline">Latihan</span></button>
+                    <button onclick="navTo('refleksi')" class="nav-btn px-3 py-2 rounded-md text-sm font-medium hover:bg-indigo-500 transition"><i class="fas fa-pen-nib sm:mr-2"></i><span class="hidden sm:inline">Refleksi</span></button>
+                    
+                    <!-- Tools -->
+                    <div class="border-l border-indigo-400 pl-4 ml-2 flex items-center space-x-2">
+                        <button onclick="toggleFullscreen()" title="Layar Penuh" class="text-indigo-100 hover:text-white transition"><i class="fas fa-expand"></i></button>
+                        <button onclick="logout()" title="Keluar" class="text-red-300 hover:text-red-100 transition ml-3"><i class="fas fa-sign-out-alt"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT AREA -->
+    <main id="main-container" class="flex-grow overflow-y-auto relative bg-slate-50 flex flex-col hidden opacity-0 transition-opacity duration-500">
+        
+        <!-- Content Wrapper (untuk mendorong footer ke bawah) -->
+        <div class="flex-grow">
+            <!-- 2. DASHBOARD VIEW -->
+            <section id="view-dashboard" class="hidden max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 min-h-full">
+                <div class="bg-white rounded-2xl shadow-sm p-6 sm:p-8 mb-8 border border-slate-100 bg-gradient-to-r from-indigo-50 to-white fade-in">
+                    <div class="flex flex-col md:flex-row items-center md:items-start justify-between">
+                        <div>
+                            <h2 class="text-3xl font-bold text-slate-800 mb-2">Halo, <span id="dash-nama" class="text-indigo-600">Siswa</span>! 👋</h2>
+                            <p class="text-slate-600"><i class="fas fa-map-marker-alt mr-2 text-indigo-400"></i><span id="dash-sekolah">Sekolah</span></p>
+                            <p class="mt-4 text-slate-600 max-w-2xl">Selamat datang di media pembelajaran interaktif. Mari eksplorasi konsep Balok, Kubus, Prisma, dan Limas dengan visual 3D.</p>
+                        </div>
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=e0e7ff" id="dash-avatar" class="w-24 h-24 rounded-full bg-indigo-100 border-4 border-white shadow-md mt-4 md:mt-0" alt="Avatar">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <!-- Progress Card -->
+                    <div class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 fade-in" style="animation-delay: 0.1s;">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-bold text-lg text-slate-700">Progress Belajar</h3>
+                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><i class="fas fa-chart-pie"></i></div>
+                        </div>
+                        <div class="mb-2 flex justify-between">
+                            <span class="text-sm font-medium text-slate-500">Materi Terselesaikan</span>
+                            <span class="text-sm font-bold text-blue-600" id="dash-materi-pct">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5 mb-6">
+                            <div id="bar-materi" class="bg-blue-600 h-2.5 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+
+                        <div class="mb-2 flex justify-between">
+                            <span class="text-sm font-medium text-slate-500">Skor Latihan Tertinggi</span>
+                            <span class="text-sm font-bold text-green-600" id="dash-skor">0/100</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5">
+                            <div id="bar-skor" class="bg-green-500 h-2.5 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Menu Cards -->
+                    <div onclick="navTo('materi')" class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 cursor-pointer hover:shadow-md hover:border-indigo-300 transition group fade-in" style="animation-delay: 0.2s;">
+                        <div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition">
+                            <i class="fas fa-cube"></i>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 mb-2">Eksplorasi 3D</h3>
+                        <p class="text-slate-500 text-sm">Pelajari konsep, ciri, dan rumus dengan visualisasi 3D yang dapat diputar.</p>
+                    </div>
+
+                    <div onclick="navTo('kuis')" class="bg-white rounded-2xl shadow-sm p-6 border border-slate-100 cursor-pointer hover:shadow-md hover:border-indigo-300 transition group fade-in" style="animation-delay: 0.3s;">
+                        <div class="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                        <h3 class="font-bold text-lg text-slate-800 mb-2">Latihan Soal</h3>
+                        <p class="text-slate-500 text-sm">Uji pemahamanmu dengan 10 soal interaktif untuk mengukur kemampuan.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. MATERI VIEW -->
+            <section id="view-materi" class="hidden flex-col lg:flex-row h-full w-full bg-slate-50 fade-in">
+                <!-- Sidebar / Menu Bangun Ruang -->
+                <div class="w-full lg:w-64 bg-white border-r border-slate-200 p-4 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-y-auto shrink-0 shadow-sm z-10">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 hidden lg:block">Pilih Bangun</h3>
+                    
+                    <button onclick="loadShape('balok')" id="btn-balok" class="shape-btn flex-1 lg:flex-none flex items-center space-x-3 p-3 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 transition text-left min-w-[120px]">
+                        <i class="fas fa-box text-xl"></i> <span class="font-semibold">Balok</span>
+                    </button>
+                    <button onclick="loadShape('kubus')" id="btn-kubus" class="shape-btn flex-1 lg:flex-none flex items-center space-x-3 p-3 rounded-xl text-slate-600 hover:bg-slate-50 transition text-left min-w-[120px]">
+                        <i class="fas fa-cube text-xl"></i> <span class="font-semibold">Kubus</span>
+                    </button>
+                    <button onclick="loadShape('prisma')" id="btn-prisma" class="shape-btn flex-1 lg:flex-none flex items-center space-x-3 p-3 rounded-xl text-slate-600 hover:bg-slate-50 transition text-left min-w-[120px]">
+                        <i class="fas fa-campground text-xl"></i> <span class="font-semibold">Prisma</span>
+                    </button>
+                    <button onclick="loadShape('limas')" id="btn-limas" class="shape-btn flex-1 lg:flex-none flex items-center space-x-3 p-3 rounded-xl text-slate-600 hover:bg-slate-50 transition text-left min-w-[120px]">
+                        <i class="fas fa-caret-up text-xl"></i> <span class="font-semibold">Limas</span>
+                    </button>
+                </div>
+
+                <!-- Content Area: Info & 3D -->
+                <div class="flex-grow flex flex-col lg:flex-row overflow-hidden relative">
+                    
+                    <!-- Info Panel (Left on Desktop, Bottom on Mobile) -->
+                    <div class="w-full lg:w-1/3 p-4 sm:p-6 lg:p-8 bg-white lg:border-r border-slate-200 overflow-y-auto order-2 lg:order-1 h-1/2 lg:h-full">
+                        <div class="glass-panel p-5 rounded-2xl shadow-sm mb-6 bg-gradient-to-br from-indigo-50 to-white">
+                            <h2 id="info-title" class="text-3xl font-extrabold text-slate-800 mb-2">Balok</h2>
+                            <p id="info-def" class="text-slate-600 text-sm leading-relaxed">Bangun ruang tiga dimensi yang dibentuk oleh tiga pasang persegi atau persegi panjang, dengan paling tidak satu pasang di antaranya berukuran berbeda.</p>
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="font-bold text-slate-700 mb-3 flex items-center"><i class="fas fa-list-ul text-indigo-500 mr-2"></i> Ciri-ciri</h3>
+                            <ul id="info-ciri" class="space-y-2 text-sm text-slate-600 list-disc pl-5">
+                                <li>Memiliki 6 sisi</li>
+                                <li>Memiliki 12 rusuk</li>
+                                <li>Memiliki 8 titik sudut</li>
+                            </ul>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-4">
+                            <div class="bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                                <h4 class="text-xs font-bold text-blue-500 uppercase tracking-wider mb-1">Luas Permukaan</h4>
+                                <div id="info-luas" class="font-mono text-lg font-bold text-slate-800">L = 2 × (pl + pt + lt)</div>
+                            </div>
+                            <div class="bg-green-50 border border-green-100 p-4 rounded-xl">
+                                <h4 class="text-xs font-bold text-green-500 uppercase tracking-wider mb-1">Volume</h4>
+                                <div id="info-vol" class="font-mono text-lg font-bold text-slate-800">V = p × l × t</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3D Canvas Panel -->
+                    <div class="w-full lg:w-2/3 p-4 sm:p-6 order-1 lg:order-2 h-1/2 lg:h-full flex flex-col relative">
+                        <!-- Control Overlay -->
+                        <div class="absolute top-8 left-8 right-8 flex justify-between items-start z-10 pointer-events-none">
+                            <div class="pointer-events-auto flex flex-wrap gap-2">
+                                <button onclick="setRenderMode('solid')" class="bg-white/90 hover:bg-white text-slate-700 px-3 py-1.5 text-sm rounded-lg shadow-md border border-slate-200 transition font-medium focus:ring-2 focus:ring-indigo-500">Solid</button>
+                                <button onclick="setRenderMode('transparent')" class="bg-white/90 hover:bg-white text-slate-700 px-3 py-1.5 text-sm rounded-lg shadow-md border border-slate-200 transition font-medium focus:ring-2 focus:ring-indigo-500">Transparan</button>
+                                <button onclick="setRenderMode('wireframe')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 text-sm rounded-lg shadow-md transition font-medium focus:ring-2 focus:ring-indigo-400"><i class="fas fa-border-all mr-1"></i> Rusuk</button>
+                            </div>
+                            <div class="bg-white/80 backdrop-blur px-3 py-2 rounded-lg shadow-sm text-xs font-medium text-slate-500 border border-slate-200 pointer-events-auto hidden sm:block">
+                                <i class="fas fa-hand-pointer mr-1"></i> Drag untuk memutar
+                            </div>
+                        </div>
+
+                        <div id="canvas-container" class="w-full h-full shadow-inner relative">
+                            <!-- Canvas di-inject via JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. LATIHAN VIEW -->
+            <section id="view-kuis" class="hidden max-w-4xl mx-auto p-4 sm:p-6 lg:p-8 min-h-full">
+                <div id="quiz-intro" class="bg-white rounded-2xl shadow-lg p-8 text-center mt-10 border border-slate-100 fade-in">
+                    <div class="w-24 h-24 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h2 class="text-3xl font-bold text-slate-800 mb-4">Latihan Pemahaman</h2>
+                    <p class="text-slate-600 mb-8 max-w-lg mx-auto">Ada 10 pertanyaan pilihan ganda untuk menguji pemahamanmu tentang ciri-ciri dan rumus bangun ruang sisi datar. Siap?</p>
+                    <button onclick="startQuiz()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:-translate-y-1 text-lg">
+                        Mulai Latihan <i class="fas fa-play ml-2"></i>
+                    </button>
+                    
+                    <div id="last-score-container" class="mt-6 hidden">
+                        <p class="text-sm text-slate-500">Skor terakhir kamu: <span id="last-score" class="font-bold text-green-600 text-lg">0</span></p>
+                    </div>
+                </div>
+
+                <div id="quiz-active" class="hidden bg-white rounded-2xl shadow-lg p-6 sm:p-8 border border-slate-100 mt-4 fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-sm font-bold text-slate-400 tracking-wider uppercase">Soal <span id="q-current">1</span> dari <span id="q-total">10</span></span>
+                        <div class="w-1/2 bg-slate-200 rounded-full h-2">
+                            <div id="quiz-progress-bar" class="bg-orange-500 h-2 rounded-full transition-all"></div>
+                        </div>
+                    </div>
+
+                    <div class="min-h-[150px]">
+                        <h3 id="question-text" class="text-xl sm:text-2xl font-semibold text-slate-800 mb-6 leading-relaxed">Pertanyaan akan muncul di sini?</h3>
+                    </div>
+
+                    <div id="options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Opsi di-generate via JS -->
+                    </div>
+                </div>
+                
+                <div id="quiz-result" class="hidden bg-white rounded-2xl shadow-lg p-8 text-center mt-10 border border-slate-100 fade-in">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-2">Latihan Selesai!</h2>
+                    <p class="text-slate-600 mb-6">Berikut adalah hasil evaluasimu.</p>
+                    
+                    <div class="w-32 h-32 mx-auto rounded-full flex items-center justify-center text-4xl font-bold text-white mb-6 shadow-lg" id="score-circle">
+                        0
+                    </div>
+
+                    <p id="score-message" class="text-lg font-medium text-slate-700 mb-8">Pesan evaluasi</p>
+
+                    <div class="flex justify-center space-x-4">
+                        <button onclick="startQuiz()" class="bg-orange-100 text-orange-600 hover:bg-orange-200 font-bold py-2 px-6 rounded-lg transition">Ulangi Latihan</button>
+                        <button onclick="navTo('dashboard')" class="bg-indigo-600 text-white hover:bg-indigo-700 font-bold py-2 px-6 rounded-lg shadow-md transition">Kembali ke Beranda</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. REFLEKSI VIEW -->
+            <section id="view-refleksi" class="hidden max-w-3xl mx-auto p-4 sm:p-6 lg:p-8 min-h-full flex flex-col mb-8">
+                <div class="bg-white rounded-2xl shadow-sm p-6 sm:p-8 border border-slate-100 bg-gradient-to-r from-teal-50 to-white mb-6 fade-in">
+                    <h2 class="text-3xl font-bold text-slate-800 mb-2">Jurnal Refleksi</h2>
+                    <p class="text-slate-600">Luangkan waktu sejenak untuk merefleksikan apa yang telah kamu pelajari hari ini.</p>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-md p-6 sm:p-8 border border-slate-200 flex-grow flex flex-col fade-in" style="animation-delay: 0.1s;">
+                    <div class="space-y-6 flex-grow">
+                        <div>
+                            <label class="block text-slate-700 font-bold mb-2 text-lg">1. Apa hal baru yang kamu pelajari hari ini?</label>
+                            <textarea id="ref-1" rows="3" class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition resize-none" placeholder="Tuliskan jawabanmu di sini..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-slate-700 font-bold mb-2 text-lg">2. Bagian materi mana yang menurutmu paling sulit dipahami?</label>
+                            <textarea id="ref-2" rows="3" class="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition resize-none" placeholder="Tuliskan kendalamu..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 flex items-center justify-between border-t border-slate-100 pt-6">
+                        <p id="ref-status" class="text-sm text-slate-400 italic"></p>
+                        <button onclick="saveReflection()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition transform hover:-translate-y-1">
+                            Simpan Jurnal <i class="fas fa-save ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- FOOTER APP -->
+        <footer id="app-footer" class="bg-neutral-950 border-t border-neutral-800 mt-auto hidden">
+            <!-- Main Footer -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+                    <!-- Brand Column -->
+                    <div class="lg:col-span-1">
+                        <a href="#" onclick="navTo('dashboard'); return false;" class="inline-block text-2xl font-bold text-white mb-4">
+                            <span class="text-amber-500">Studio</span>lpg
+                        </a>
+                        <p class="text-white/60 text-sm leading-relaxed mb-6">
+                            Studiolpg adalah platform media & bahan ajar gratis untuk mendukung pembelajaran yang kreatif dan menyenangkan.
+                        </p>
+                        <!-- Social Media -->
+                        <div class="flex items-center gap-3">
+                            <a href="https://s.id/youtube-noviyalpg" target="_blank" rel="noopener noreferrer" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-red-600 flex items-center justify-center text-white/60 hover:text-white transition-all duration-300" title="YouTube">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
+                            </a> 
+                            <a href="https://s.id/ig-noviyalpg" target="_blank" rel="noopener noreferrer" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-gradient-to-br hover:from-purple-600 hover:to-pink-500 flex items-center justify-center text-white/60 hover:text-white transition-all duration-300" title="Instagram">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
+                            </a> 
+                            <a href="https://www.tiktok.com/@noviya.lpg?_t=ZS-8tafgg6Eeyl&_r=1" target="_blank" rel="noopener noreferrer" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-black flex items-center justify-center text-white/60 hover:text-white transition-all duration-300 hover:ring-2 hover:ring-cyan-400" title="TikTok">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" /></svg>
+                            </a> 
+                            <a href="https://www.facebook.com/noviyalpg/" target="_blank" rel="noopener noreferrer" class="w-10 h-10 rounded-full bg-neutral-800 hover:bg-blue-600 flex items-center justify-center text-white/60 hover:text-white transition-all duration-300" title="Facebook">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Copyright Box -->
+            <div class="border-t border-neutral-800 py-6">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center text-sm text-white/50">
+                    &copy; 2026 Noviyalpg Creative. Semua Hak Cipta Dilindungi.
+                </div>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- Three.js Library & Controls (Load via CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- MAIN LOGIC (JavaScript) -->
+    <script>
+        // --- DATA MATERI ---
+        const materiData = {
+            balok: {
+                id: 'balok',
+                title: 'Balok',
+                def: 'Bangun ruang tiga dimensi yang dibentuk oleh tiga pasang persegi atau persegi panjang, dengan paling tidak satu pasang di antaranya berukuran berbeda.',
+                ciri: ['Memiliki 6 sisi berbentuk persegi panjang', 'Memiliki 12 rusuk', 'Memiliki 8 titik sudut', 'Memiliki 4 diagonal ruang', 'Memiliki 12 diagonal bidang'],
+                luas: 'L = 2(pl + pt + lt)',
+                vol: 'V = p × l × t'
+            },
+            kubus: {
+                id: 'kubus',
+                title: 'Kubus',
+                def: 'Bangun ruang tiga dimensi yang dibatasi oleh enam bidang sisi yang kongruen berbentuk bujur sangkar (persegi).',
+                ciri: ['Memiliki 6 sisi berbentuk persegi yang ukurannya sama', 'Memiliki 12 rusuk yang panjangnya sama', 'Memiliki 8 titik sudut', 'Memiliki 4 diagonal ruang', 'Memiliki 12 diagonal bidang'],
+                luas: 'L = 6 × s²',
+                vol: 'V = s × s × s = s³'
+            },
+            prisma: {
+                id: 'prisma',
+                title: 'Prisma Segitiga',
+                def: 'Bangun ruang yang memiliki alas dan atap yang sama (kongruen) berbentuk segitiga dan selimut berbentuk persegi panjang.',
+                ciri: ['Memiliki 5 sisi (2 segitiga, 3 persegi panjang)', 'Memiliki 9 rusuk', 'Memiliki 6 titik sudut', 'Bentuk alas dan atap sama persis'],
+                luas: 'L = (2 × Luas Alas) + (Keliling Alas × t)',
+                vol: 'V = Luas Alas × t'
+            },
+            limas: {
+                id: 'limas',
+                title: 'Limas Segiempat',
+                def: 'Bangun ruang yang alasnya berbentuk segiempat dan sisi tegaknya berbentuk segitiga yang bertemu pada satu titik puncak.',
+                ciri: ['Memiliki 5 sisi (1 segiempat, 4 segitiga)', 'Memiliki 8 rusuk', 'Memiliki 5 titik sudut (1 titik puncak)', 'Tidak memiliki atap'],
+                luas: 'L = Luas Alas + Jumlah Luas Sisi Tegak',
+                vol: 'V = 1/3 × Luas Alas × t'
+            }
+        };
+
+        // --- DATA KUIS ---
+        const questions = [
+            { q: "Rumus volume balok adalah...", options: ["p + l + t", "p × l × t", "s × s × s", "1/3 × La × t"], answer: 1 },
+            { q: "Bangun ruang yang dibatasi oleh 6 buah persegi yang kongruen disebut...", options: ["Balok", "Prisma", "Kubus", "Limas"], answer: 2 },
+            { q: "Berapa jumlah rusuk yang dimiliki oleh sebuah Kubus?", options: ["8", "10", "12", "6"], answer: 2 },
+            { q: "Rumus luas permukaan kubus dengan panjang rusuk 's' adalah...", options: ["6 × s²", "s³", "4 × s", "2(pl+pt+lt)"], answer: 0 },
+            { q: "Sebuah limas memiliki alas berbentuk persegi. Berapa jumlah titik sudut totalnya?", options: ["4", "5", "6", "8"], answer: 1 },
+            { q: "Bangun ruang manakah yang TIDAK memiliki atap yang kongruen dengan alasnya?", options: ["Balok", "Kubus", "Prisma Segitiga", "Limas Segiempat"], answer: 3 },
+            { q: "Rumus volume prisma secara umum adalah...", options: ["V = s³", "V = 1/3 × Luas Alas × t", "V = Luas Alas × t", "V = p × l × t"], answer: 2 },
+            { q: "Berapa jumlah sisi pada prisma segitiga?", options: ["4", "5", "6", "9"], answer: 1 },
+            { q: "Jika sebuah balok memiliki panjang 5cm, lebar 4cm, dan tinggi 3cm, volumenya adalah...", options: ["60 cm³", "12 cm³", "94 cm³", "20 cm³"], answer: 0 },
+            { q: "Garis yang menghubungkan dua titik sudut yang saling berhadapan dalam satu ruang disebut...", options: ["Rusuk", "Diagonal Bidang", "Bidang Diagonal", "Diagonal Ruang"], answer: 3 }
+        ];
+
+        // --- STATE MANAGEMENT ---
+        let state = {
+            user: { nama: '', sekolah: '' },
+            progress: {
+                materi: { balok: false, kubus: false, prisma: false, limas: false },
+                skor: 0,
+                refleksi1: '',
+                refleksi2: ''
+            }
+        };
+
+        let currentShape = 'balok';
+        
+        // --- THREE.JS VARIABLES ---
+        let scene, camera, renderer, controls, currentMesh, edgesHelper, group;
+        let animationId;
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            // Simulasi proses loading via Splash Screen selama 2.5 Detik
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                splash.classList.add('splash-fade-out');
+                
+                // Menunggu animasi fade-out selesai baru menampilkan UI sebenarnya
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    
+                    loadState();
+                    if (state.user.nama) {
+                        showView('dashboard');
+                        updateDashboard();
+                    } else {
+                        showView('login');
+                    }
+                    
+                    initThreeJS();
+                }, 800);
+            }, 2500);
+        };
+
+        // --- CORE FUNCTIONS ---
+        function loadState() {
+            const saved = localStorage.getItem('geom3d_state');
+            if (saved) state = JSON.parse(saved);
+        }
+
+        function saveState() {
+            localStorage.setItem('geom3d_state', JSON.stringify(state));
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const nama = document.getElementById('input-nama').value;
+            const sekolah = document.getElementById('input-sekolah').value;
+            
+            if(nama && sekolah) {
+                state.user = { nama, sekolah };
+                saveState();
+                
+                // Animasi keluar
+                const loginBox = document.getElementById('login-box');
+                loginBox.style.opacity = '0';
+                loginBox.style.transform = 'scale(0.95)';
+                
+                setTimeout(() => {
+                    document.getElementById('dash-avatar').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${nama}&backgroundColor=e0e7ff`;
+                    updateDashboard();
+                    showView('dashboard');
+                    
+                    Swal.fire({
+                        title: 'Selamat Datang!',
+                        text: `Halo ${nama}, mari mulai belajar!`,
+                        icon: 'success',
+                        confirmButtonColor: '#4f46e5'
+                    });
+                }, 400);
+            }
+        }
+
+        function logout() {
+            Swal.fire({
+                title: 'Keluar?',
+                text: "Data progress kamu akan tetap tersimpan di perangkat ini.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#e63946',
+                cancelButtonColor: '#94a3b8',
+                confirmButtonText: 'Ya, Keluar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    state.user = {nama: '', sekolah: ''};
+                    saveState();
+                    document.getElementById('input-nama').value = '';
+                    document.getElementById('input-sekolah').value = '';
+                    
+                    showView('login');
+                }
+            });
+        }
+
+        function showView(viewId) {
+            const mainContainer = document.getElementById('main-container');
+            const loginSection = document.getElementById('view-login');
+            
+            // Reset semua view utama (sembunyikan)
+            ['dashboard', 'materi', 'kuis', 'refleksi'].forEach(id => {
+                const el = document.getElementById(`view-${id}`);
+                el.classList.add('hidden');
+                el.classList.remove('flex');
+            });
+
+            const appFooter = document.getElementById('app-footer');
+
+            if(viewId === 'login') {
+                mainContainer.classList.add('hidden');
+                mainContainer.classList.remove('flex', 'opacity-100');
+                
+                loginSection.classList.remove('hidden');
+                loginSection.classList.add('flex');
+                
+                // Animasi box login
+                setTimeout(() => {
+                    const loginBox = document.getElementById('login-box');
+                    loginBox.classList.add('fade-in');
+                    loginBox.style.opacity = '1';
+                    loginBox.style.transform = 'scale(1)';
+                }, 50);
+
+                document.getElementById('top-nav').classList.add('hidden');
+                if(appFooter) appFooter.classList.add('hidden');
+            } else {
+                loginSection.classList.add('hidden');
+                loginSection.classList.remove('flex');
+                
+                mainContainer.classList.remove('hidden');
+                mainContainer.classList.add('flex');
+                
+                // Fade in container perlahan
+                setTimeout(() => {
+                    mainContainer.classList.add('opacity-100');
+                }, 50);
+
+                document.getElementById('top-nav').classList.remove('hidden');
+                
+                const viewElement = document.getElementById(`view-${viewId}`);
+                viewElement.classList.remove('hidden');
+                
+                if(viewId === 'materi') {
+                    viewElement.classList.add('flex'); // Flex side-by-side
+                    if(appFooter) appFooter.classList.add('hidden');
+                    setTimeout(() => {
+                        resizeCanvas(); 
+                        loadShape(currentShape); 
+                    }, 100);
+                } else if(viewId === 'refleksi') {
+                    viewElement.classList.add('flex');
+                    if(appFooter) appFooter.classList.remove('hidden');
+                    document.getElementById('ref-1').value = state.progress.refleksi1 || '';
+                    document.getElementById('ref-2').value = state.progress.refleksi2 || '';
+                    document.getElementById('ref-status').innerText = '';
+                } else {
+                    if(appFooter) appFooter.classList.remove('hidden');
+                }
+                updateNavStyles(viewId);
+            }
+        }
+
+        function updateNavStyles(activeView) {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-800', 'shadow-inner');
+                if(btn.getAttribute('onclick').includes(activeView)) {
+                    btn.classList.add('bg-indigo-800', 'shadow-inner');
+                }
+            });
+        }
+
+        function navTo(view) {
+            if(!state.user.nama && view !== 'login') return showView('login');
+            
+            if(view === 'dashboard') updateDashboard();
+            if(view === 'kuis') prepareQuizIntro();
+            
+            showView(view);
+        }
+
+        function updateDashboard() {
+            document.getElementById('dash-nama').innerText = state.user.nama;
+            document.getElementById('dash-sekolah').innerText = state.user.sekolah;
+            document.getElementById('dash-avatar').src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${state.user.nama}&backgroundColor=e0e7ff`;
+
+            // Hitung persentase materi
+            let readCount = Object.values(state.progress.materi).filter(Boolean).length;
+            let materiPct = (readCount / 4) * 100;
+            document.getElementById('dash-materi-pct').innerText = `${materiPct}%`;
+            document.getElementById('bar-materi').style.width = `${materiPct}%`;
+
+            // Tampilkan Skor Latihan
+            document.getElementById('dash-skor').innerText = `${state.progress.skor}/100`;
+            document.getElementById('bar-skor').style.width = `${state.progress.skor}%`;
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // --- MATERI & THREE.JS LOGIC ---
+        
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            if(!container) return;
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(4, 3, 5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 2.0;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+            dirLight2.position.set(-10, -20, -10);
+            scene.add(dirLight2);
+
+            group = new THREE.Group();
+            scene.add(group);
+
+            window.addEventListener('resize', resizeCanvas);
+            animate();
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            if(container && renderer && camera) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        }
+
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            if(controls) controls.update(); 
+            if(renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        function createShapeGeometry(type) {
+            switch(type) {
+                case 'kubus':
+                    return new THREE.BoxGeometry(2, 2, 2);
+                case 'balok':
+                    return new THREE.BoxGeometry(3, 1.5, 2);
+                case 'prisma':
+                    const prism = new THREE.CylinderGeometry(1.5, 1.5, 3, 3);
+                    prism.rotateX(Math.PI / 2); 
+                    return prism;
+                case 'limas':
+                    const pyra = new THREE.CylinderGeometry(0, 1.5, 2.5, 4);
+                    pyra.rotateY(Math.PI / 4); 
+                    return pyra;
+                default:
+                    return new THREE.BoxGeometry(2, 2, 2);
+            }
+        }
+
+        function loadShape(shapeId) {
+            currentShape = shapeId;
+            state.progress.materi[shapeId] = true;
+            saveState();
+
+            document.querySelectorAll('.shape-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-50', 'text-indigo-700', 'border', 'border-indigo-200');
+                btn.classList.add('text-slate-600', 'hover:bg-slate-50');
+            });
+            const activeBtn = document.getElementById(`btn-${shapeId}`);
+            activeBtn.classList.remove('text-slate-600', 'hover:bg-slate-50');
+            activeBtn.classList.add('bg-indigo-50', 'text-indigo-700', 'border', 'border-indigo-200');
+
+            const data = materiData[shapeId];
+            document.getElementById('info-title').innerText = data.title;
+            document.getElementById('info-def').innerText = data.def;
+            
+            const ciriList = document.getElementById('info-ciri');
+            ciriList.innerHTML = '';
+            data.ciri.forEach(item => {
+                const li = document.createElement('li');
+                li.innerText = item;
+                ciriList.appendChild(li);
+            });
+
+            document.getElementById('info-luas').innerText = data.luas;
+            document.getElementById('info-vol').innerText = data.vol;
+
+            const infoDiv = document.getElementById('info-title').parentElement;
+            infoDiv.classList.remove('fade-in');
+            void infoDiv.offsetWidth; 
+            infoDiv.classList.add('fade-in');
+
+            while(group.children.length > 0){ 
+                let child = group.children[0];
+                group.remove(child); 
+                if(child.geometry) child.geometry.dispose();
+                if(child.material) child.material.dispose();
+            }
+
+            const geometry = createShapeGeometry(shapeId);
+            const material = new THREE.MeshPhysicalMaterial({ 
+                color: 0x4f46e5, 
+                metalness: 0.1,
+                roughness: 0.5,
+                clearcoat: 0.8,
+                clearcoatRoughness: 0.2,
+                transparent: true,
+                opacity: 1,
+                side: THREE.DoubleSide
+            });
+            
+            currentMesh = new THREE.Mesh(geometry, material);
+            group.add(currentMesh);
+
+            const edgesGeometry = new THREE.EdgesGeometry(geometry);
+            const edgesMaterial = new THREE.LineBasicMaterial({ color: 0x1e293b, linewidth: 2 });
+            edgesHelper = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+            edgesHelper.visible = false; 
+            group.add(edgesHelper);
+
+            camera.position.set(4, 3, 5);
+            controls.target.set(0, 0, 0);
+            
+            setRenderMode('solid');
+        }
+
+        function setRenderMode(mode) {
+            if(!currentMesh) return;
+            controls.autoRotate = false;
+
+            if(mode === 'solid') {
+                currentMesh.material.opacity = 1;
+                currentMesh.material.wireframe = false;
+                edgesHelper.visible = false;
+            } 
+            else if(mode === 'transparent') {
+                currentMesh.material.opacity = 0.4;
+                currentMesh.material.wireframe = false;
+                edgesHelper.visible = true;
+            }
+            else if(mode === 'wireframe') {
+                currentMesh.material.opacity = 0; 
+                edgesHelper.visible = true; 
+            }
+        }
+
+        // --- KUIS LOGIC ---
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let quizActive = false;
+
+        function prepareQuizIntro() {
+            document.getElementById('quiz-intro').classList.remove('hidden');
+            document.getElementById('quiz-active').classList.add('hidden');
+            document.getElementById('quiz-result').classList.add('hidden');
+            
+            if(state.progress.skor > 0 || state.progress.skor === '0') {
+                document.getElementById('last-score-container').classList.remove('hidden');
+                document.getElementById('last-score').innerText = state.progress.skor;
+            }
+        }
+
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            quizActive = true;
+            
+            document.getElementById('quiz-intro').classList.add('hidden');
+            document.getElementById('quiz-result').classList.add('hidden');
+            document.getElementById('quiz-active').classList.remove('hidden');
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const qData = questions[currentQuestionIndex];
+            
+            document.getElementById('q-current').innerText = currentQuestionIndex + 1;
+            document.getElementById('q-total').innerText = questions.length;
+            document.getElementById('quiz-progress-bar').style.width = `${((currentQuestionIndex) / questions.length) * 100}%`;
+            
+            const qEl = document.getElementById('question-text');
+            qEl.innerText = qData.q;
+            qEl.classList.remove('fade-in');
+            void qEl.offsetWidth;
+            qEl.classList.add('fade-in');
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+            
+            qData.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-orange-400 hover:bg-orange-50 font-medium text-slate-700 transition flex items-center group';
+                
+                const letterBox = document.createElement('span');
+                letterBox.className = 'w-8 h-8 rounded bg-slate-100 text-slate-500 font-bold flex items-center justify-center mr-3 group-hover:bg-orange-100 group-hover:text-orange-600 transition';
+                letterBox.innerText = String.fromCharCode(65 + idx);
+                
+                const textSpan = document.createElement('span');
+                textSpan.innerText = opt;
+                
+                btn.appendChild(letterBox);
+                btn.appendChild(textSpan);
+                
+                btn.onclick = () => handleAnswer(idx, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(selectedIndex, btnElement) {
+            if(!quizActive) return;
+            quizActive = false; 
+
+            const correctIndex = questions[currentQuestionIndex].answer;
+            const buttons = document.getElementById('options-container').children;
+
+            for(let btn of buttons) {
+                btn.onclick = null;
+                btn.classList.remove('hover:border-orange-400', 'hover:bg-orange-50', 'cursor-pointer');
+            }
+
+            if(selectedIndex === correctIndex) {
+                score += 10;
+                btnElement.classList.replace('border-slate-200', 'border-green-500');
+                btnElement.classList.add('bg-green-50');
+                btnElement.querySelector('span').classList.replace('bg-slate-100', 'bg-green-500');
+                btnElement.querySelector('span').classList.replace('text-slate-500', 'text-white');
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Tepat Sekali!',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                });
+
+            } else {
+                btnElement.classList.replace('border-slate-200', 'border-red-500');
+                btnElement.classList.add('bg-red-50');
+                btnElement.querySelector('span').classList.replace('bg-slate-100', 'bg-red-500');
+                btnElement.querySelector('span').classList.replace('text-slate-500', 'text-white');
+
+                const correctBtn = buttons[correctIndex];
+                correctBtn.classList.replace('border-slate-200', 'border-green-500');
+                correctBtn.classList.add('bg-green-50');
+                correctBtn.querySelector('span').classList.replace('bg-slate-100', 'bg-green-500');
+                correctBtn.querySelector('span').classList.replace('text-slate-500', 'text-white');
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Kurang Tepat',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    timerProgressBar: true
+                });
+            }
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                if(currentQuestionIndex < questions.length) {
+                    quizActive = true;
+                    showQuestion();
+                } else {
+                    finishQuiz();
+                }
+            }, 1800);
+        }
+
+        function finishQuiz() {
+            document.getElementById('quiz-active').classList.add('hidden');
+            document.getElementById('quiz-result').classList.remove('hidden');
+            
+            if(score > state.progress.skor) {
+                state.progress.skor = score;
+                saveState();
+            }
+
+            const circle = document.getElementById('score-circle');
+            circle.innerText = score;
+            
+            const msg = document.getElementById('score-message');
+            if(score >= 80) {
+                circle.className = 'w-32 h-32 mx-auto rounded-full flex items-center justify-center text-4xl font-bold text-white mb-6 shadow-lg bg-green-500';
+                msg.innerText = "Luar biasa! Pemahamanmu sangat mantap.";
+            } else if(score >= 50) {
+                circle.className = 'w-32 h-32 mx-auto rounded-full flex items-center justify-center text-4xl font-bold text-white mb-6 shadow-lg bg-yellow-400';
+                msg.innerText = "Cukup baik, tapi yuk pelajari ulang materinya!";
+            } else {
+                circle.className = 'w-32 h-32 mx-auto rounded-full flex items-center justify-center text-4xl font-bold text-white mb-6 shadow-lg bg-red-500';
+                msg.innerText = "Jangan menyerah! Baca materinya pelan-pelan lagi ya.";
+            }
+        }
+
+        // --- REFLEKSI LOGIC ---
+        function saveReflection() {
+            const ref1 = document.getElementById('ref-1').value;
+            const ref2 = document.getElementById('ref-2').value;
+
+            if(ref1.trim() === '' || ref2.trim() === '') {
+                Swal.fire('Ups!', 'Harap isi kedua pertanyaan refleksi ya.', 'warning');
+                return;
+            }
+
+            state.progress.refleksi1 = ref1;
+            state.progress.refleksi2 = ref2;
+            saveState();
+
+            const statusEl = document.getElementById('ref-status');
+            statusEl.innerHTML = `<span class="text-teal-600"><i class="fas fa-check-circle mr-1"></i> Tersimpan pada ${new Date().toLocaleTimeString('id-ID')}</span>`;
+
+            Swal.fire({
+                title: 'Jurnal Tersimpan!',
+                text: 'Terima kasih telah merefleksikan proses belajarmu hari ini.',
+                icon: 'success',
+                confirmButtonColor: '#0d9488'
+            });
+        }
+
+    </script>
+</body>
+</html>
